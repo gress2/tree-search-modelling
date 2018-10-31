@@ -48,7 +48,6 @@ class monte_carlo_simulator {
       
       auto moves = con_.get_moves(root_.board);
       con_.make_move(moves[0], root_.board);
-
+      render(root_.board);
     }
-
 };

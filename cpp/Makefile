@@ -1,5 +1,5 @@
 CC = g++
-CFLAGS = -std=c++17 -g -Wfatal-errors -c -Iinclude
+CFLAGS = -std=c++17 -Ofast -g -Wfatal-errors -c -Iinclude
 
 same_game_sim: same_game_sim.o
 	$(CC) -o $@ $<

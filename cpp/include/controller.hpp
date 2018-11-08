@@ -27,19 +27,23 @@ void find_adjacent(
   action_type down(x, y - 1);
   action_type left(x - 1, y);
 
-  if (!adjacent.count(up) && up.second < width && board[up.first][up.second] == tile) {
+  if (!adjacent.count(up) && up.second < width && 
+      board[up.first][up.second] == tile) {
     find_adjacent(up, adjacent, board);
   }
 
-  if (!adjacent.count(right) && right.first < width && board[right.first][right.second] == tile) {
+  if (!adjacent.count(right) && right.first < width && 
+      board[right.first][right.second] == tile) {
     find_adjacent(right, adjacent, board);
   }
 
-  if (!adjacent.count(down) && down.second >= 0 && board[down.first][down.second] == tile) {
+  if (!adjacent.count(down) && down.second >= 0 && 
+      board[down.first][down.second] == tile) {
     find_adjacent(down, adjacent, board);
   }
 
-  if (!adjacent.count(left) && left.first >= 0 && board[left.first][left.second] == tile) {
+  if (!adjacent.count(left) && left.first >= 0 && 
+      board[left.first][left.second] == tile) {
     find_adjacent(left, adjacent, board);
   }
 }
@@ -96,22 +100,27 @@ bool is_game_over(const same_game::board_type& board) {
   return true;
 }
 
-bool is_board_empty(const same_game::board_type& board) {
-  for (auto& col : board) {
-    bool all_zero = std::all_of(col.begin(), col.end(),
-        [](short i) { return i == 0; });
-    if (!all_zero) {
-      return false;
+int num_tiles_remaining(const same_game::board_type& board) {
+  const int width = same_game::width;
+  const int height = same_game::height;
+
+  int ctr = 0;
+  for (int x = 0; x < width; x++) {
+    for (int y = 0; y < height; y++) {
+      if (board[x][y] == 0) {
+        continue;
+      } 
+      ctr++;
     }
   }
-  return true;
+  return ctr;
 }
 
 template <class Game>
-void make_move_impl(const typename Game::action_type& action, typename Game::board_type& board);
+float make_move_impl(const typename Game::action_type& action, typename Game::board_type& board);
 
 template <>
-void make_move_impl<same_game>(const typename same_game::action_type& action, 
+float make_move_impl<same_game>(const typename same_game::action_type& action, 
     typename same_game::board_type& board) {
 
   using action_type = typename same_game::action_type;
@@ -129,11 +138,14 @@ void make_move_impl<same_game>(const typename same_game::action_type& action,
   int reward = (num_removed - 2) * (num_removed - 2);
 
   if (is_game_over(board)) {
-    if (is_board_empty(board)) {
-
+    int num_remaining = num_tiles_remaining(board);
+    if (!num_remaining) {
+      reward += 1000;
+    } else {
+      reward -= (num_remaining - 2) * (num_remaining - 2);
     }
   }
-
+  return reward;
 }
 
 template <class Game>
@@ -177,7 +189,7 @@ Board initialize_board_impl(Board board);
 
 template <>
 typename same_game::board_type initialize_board_impl(typename same_game::board_type board) {
-  std::cout << "Initializing root board..." << std::endl;
+  std::cout << "Initializing root board...";
   std::srand(32);
 
   const int width = same_game::width;
@@ -192,6 +204,7 @@ typename same_game::board_type initialize_board_impl(typename same_game::board_t
     }
     board.push_back(col);
   }
+  std::cout << "Done." << std::endl;
 
   return board;
 }
@@ -207,7 +220,7 @@ class controller {
     board_type initialize_board(board_type board) {
       return initialize_board_impl(board);
     }
-    void make_move(action_type& action, board_type& board) {
-      make_move_impl<Game>(action, board);
+    float make_move(action_type& action, board_type& board) {
+      return make_move_impl<Game>(action, board);
     }
 };

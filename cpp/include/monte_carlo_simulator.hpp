@@ -79,7 +79,7 @@ class monte_carlo_simulator {
         }
         rewards.push_back(reward);
       }
-      float mean = std::accumulate(rewards.begin(), rewards.end(), 0) / rewards.size();
+      float mean = std::accumulate(rewards.begin(), rewards.end(), 0) / static_cast<float>(rewards.size());
       float var = 0;
 
       std::for_each(rewards.begin(), rewards.end(), [&](const float r) {
@@ -115,17 +115,21 @@ class monte_carlo_simulator {
         float mean = 0;
         float v1 = 0;
         float v2 = 0;
-        for (auto& p : c_vals) {
-          mean += p.first / n;
+        for (std::pair<float, float>& p : c_vals) {
+          mean += p.first / static_cast<float>(n);
           v1 += p.second / n;
           v2 += (p.first * p.first) / n; 
         }
         float var = v1 + v2 - (mean * mean);
 
-        mixing_data_f_ << mean << " " << var << " " << node->depth << " [ "; 
-        for (auto& p : c_vals) {
-          mixing_data_f_ << "(" << p.first << "," << p.second << ") ";
-        }
+        mixing_data_f_ << mean << " " << var << " " << node->depth << " ["; 
+
+        auto it = c_vals.begin();
+        mixing_data_f_ << "(" << it->first << "," << it->second << ")";
+        while (it != c_vals.end()) {
+          mixing_data_f_ << ", (" << it->first << "," << it->second << ")"; 
+          ++it;
+        } 
         mixing_data_f_ << "]" << std::endl;
 
         return std::make_pair(mean, var);
@@ -133,7 +137,7 @@ class monte_carlo_simulator {
     }
 
     void simulate() {
-      while (num_nodes_ < 1e5 && !worklist_.empty()) {
+      while (num_nodes_ < 1e3 && !worklist_.empty()) {
         int random_idx = std::rand() % worklist_.size(); 
         auto it = worklist_.begin();
         std::advance(it, random_idx);

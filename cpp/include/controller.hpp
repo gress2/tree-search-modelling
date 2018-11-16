@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <cstdlib>
 #include <iostream>
 #include <set>
@@ -184,14 +185,16 @@ std::vector<same_game::action_type> get_moves_impl<same_game>(const typename sam
   return actions;
 }; 
 
-template <class State>
-State initialize_state_impl(State state);
+template <class Config>
+State initialize_state_impl(Config cfg);
 
 template <>
-typename same_game::state_type initialize_state_impl(typename same_game::state_type state) {
+typename same_game::state_type initialize_state_impl(typename same_game::config_type& cfg) {
 
-  const int width = same_game::width;
-  const int height = same_game::height;
+  const int width = cfg.width;
+  const int height = cfg.height;
+
+  same_game::state_type state;
 
   using col_type = typename same_game::state_type::value_type;
 
@@ -214,8 +217,8 @@ class controller {
     std::vector<action_type> get_moves(const state_type& state) const {
       return get_moves_impl<Game>(state);
     } 
-    state_type initialize_state(state_type state) {
-      return initialize_state_impl(state);
+    state_type initialize_state(config_type cfg) {
+      return initialize_state_impl(cfg);
     }
     float make_move(action_type& action, state_type& state) {
       return make_move_impl<Game>(action, state);

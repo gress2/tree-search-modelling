@@ -8,5 +8,6 @@
 int main() {
   std::srand(std::time(0));
   std::ofstream out_file("depths");
-  random_search<same_game>(1e5, out_file);
+  
+  random_search<same_game>(game_config, 1e5, out_file);
 }

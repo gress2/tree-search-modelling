@@ -9,10 +9,5 @@ int main() {
   std::srand(std::time(0));
   std::ofstream out_file("depths");
 
-
-  using game_type = generic_game<
-
-  >;
-
-  random_search<game_type>(1e5, out_file);
+  random_search<v0_game<>>(1e5, out_file);
 }

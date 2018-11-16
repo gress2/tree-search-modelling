@@ -75,6 +75,7 @@ void depth_first_search(
 
 template <class Game>
 void random_search(
+  typename Game::config_type cfg,
   std::size_t num_iters, 
   std::ofstream& out_file
 ) {
@@ -82,7 +83,7 @@ void random_search(
   controller<Game> con;
 
   for (std::size_t i = 0; i < num_iters; i++) {
-    state_type state = con.initialize_state(state_type{}); 
+    state_type state = con.initialize_state(cfg); 
     auto moves = con.get_moves(state);
     int num_moves = 0;
     while (!moves.empty()) {

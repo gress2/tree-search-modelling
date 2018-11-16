@@ -84,13 +84,13 @@ void random_search(
 
   for (std::size_t i = 0; i < num_iters; i++) {
     state_type state = con.initialize_state(cfg); 
-    auto moves = con.get_moves(state);
+    auto moves = con.get_moves(cfg, state);
     int num_moves = 0;
     while (!moves.empty()) {
       int move_idx = std::rand() % moves.size();
-      con.make_move(moves[move_idx], state);
+      con.make_move(cfg, moves[move_idx], state);
       num_moves++;
-      moves = con.get_moves(state);
+      moves = con.get_moves(cfg, state);
     }
     out_file << num_moves << std::endl;
   }

@@ -8,14 +8,15 @@
 #include "game.hpp"
 
 void find_adjacent(
+    const same_game::config_type& cfg,
     same_game::action_type action, 
     std::set<same_game::action_type>& adjacent,
     const same_game::state_type& state
 ) {
 
   using action_type = same_game::action_type;
-  const int width = same_game::width;
-  const int height = same_game::height;
+  const int width = cfg.width;
+  const int height = cfg.height;
 
   adjacent.insert(action);
   short x = action.first;
@@ -30,27 +31,27 @@ void find_adjacent(
 
   if (!adjacent.count(up) && up.second < width && 
       state[up.first][up.second] == tile) {
-    find_adjacent(up, adjacent, state);
+    find_adjacent(cfg, up, adjacent, state);
   }
 
   if (!adjacent.count(right) && right.first < width && 
       state[right.first][right.second] == tile) {
-    find_adjacent(right, adjacent, state);
+    find_adjacent(cfg, right, adjacent, state);
   }
 
   if (!adjacent.count(down) && down.second >= 0 && 
       state[down.first][down.second] == tile) {
-    find_adjacent(down, adjacent, state);
+    find_adjacent(cfg, down, adjacent, state);
   }
 
   if (!adjacent.count(left) && left.first >= 0 && 
       state[left.first][left.second] == tile) {
-    find_adjacent(left, adjacent, state);
+    find_adjacent(cfg, left, adjacent, state);
   }
 }
 
-void collapse(same_game::state_type& state) {
-  const int width = same_game::width;
+void collapse(const same_game::config_type& cfg, same_game::state_type& state) {
+  const int width = cfg.width;
   for (int x = 0; x < width; x++) {
     std::vector<short>& col = state[x];
     for (auto it = col.begin(); it != col.end();) {
@@ -80,9 +81,12 @@ void collapse(same_game::state_type& state) {
   state.insert(state.end(), num_to_fill, to_fill);
 }
 
-bool is_game_over(const same_game::state_type& state) {
-  const int width = same_game::width;
-  const int height = same_game::height;
+bool is_game_over(
+  const same_game::config_type& cfg, 
+  const same_game::state_type& state
+) {
+  const int width = cfg.width;
+  const int height = cfg.height;
 
   for (int x = 0; x < width; x++) {
     for (int y = 0; y < height; y++) {
@@ -101,9 +105,12 @@ bool is_game_over(const same_game::state_type& state) {
   return true;
 }
 
-int num_tiles_remaining(const same_game::state_type& state) {
-  const int width = same_game::width;
-  const int height = same_game::height;
+int num_tiles_remaining(
+  const same_game::config_type& cfg, 
+  const same_game::state_type& state
+) {
+  const int width = cfg.width;
+  const int height = cfg.height;
 
   int ctr = 0;
   for (int x = 0; x < width; x++) {
@@ -118,28 +125,35 @@ int num_tiles_remaining(const same_game::state_type& state) {
 }
 
 template <class Game>
-float make_move_impl(const typename Game::action_type& action, typename Game::state_type& state);
+float make_move_impl(
+  const typename Game::config_type& cfg,
+  const typename Game::action_type& action, 
+  typename Game::state_type& state
+);
 
 template <>
-float make_move_impl<same_game>(const typename same_game::action_type& action, 
-    typename same_game::state_type& state) {
+float make_move_impl<same_game>(
+  const typename same_game::config_type& cfg,
+  const typename same_game::action_type& action, 
+  typename same_game::state_type& state
+) {
 
   using action_type = typename same_game::action_type;
 
   std::set<action_type> adjacent;
-  find_adjacent(action, adjacent, state);
+  find_adjacent(cfg, action, adjacent, state);
 
   for (auto& elem : adjacent) {
     state[elem.first][elem.second] = 0;
   }
 
-  collapse(state);
+  collapse(cfg, state);
 
   int num_removed = adjacent.size();
   int reward = (num_removed - 2) * (num_removed - 2);
 
-  if (is_game_over(state)) {
-    int num_remaining = num_tiles_remaining(state);
+  if (is_game_over(cfg, state)) {
+    int num_remaining = num_tiles_remaining(cfg, state);
     if (!num_remaining) {
       reward += 1000;
     } else {
@@ -150,13 +164,19 @@ float make_move_impl<same_game>(const typename same_game::action_type& action,
 }
 
 template <class Game>
-std::vector<typename Game::action_type> get_moves_impl(const typename Game::state_type& state);
+std::vector<typename Game::action_type> get_moves_impl(
+  const typename Game::config_type& cfg, 
+  const typename Game::state_type& state
+);
 
 template <>
-std::vector<same_game::action_type> get_moves_impl<same_game>(const typename same_game::state_type& state) {
+std::vector<same_game::action_type> get_moves_impl<same_game>(
+  const typename same_game::config_type& cfg,
+  const typename same_game::state_type& state
+) {
   using action_type = typename same_game::action_type;
-  const int width = same_game::width;
-  const int height = same_game::height;
+  const int width = cfg.width;
+  const int height = cfg.height;
 
   std::set<action_type> covered;
   std::vector<action_type> actions;
@@ -173,7 +193,7 @@ std::vector<same_game::action_type> get_moves_impl<same_game>(const typename sam
       }
 
       std::set<action_type> adjacent;
-      find_adjacent(cur, adjacent, state);
+      find_adjacent(cfg, cur, adjacent, state);
 
       if (adjacent.size() > 1) {
         actions.push_back(cur);
@@ -185,12 +205,11 @@ std::vector<same_game::action_type> get_moves_impl<same_game>(const typename sam
   return actions;
 }; 
 
-template <class Config>
-State initialize_state_impl(Config cfg);
+template <class Game>
+typename Game::state_type initialize_state_impl(const typename Game::config_type& cfg);
 
 template <>
-typename same_game::state_type initialize_state_impl(typename same_game::config_type& cfg) {
-
+typename same_game::state_type initialize_state_impl<same_game>(const typename same_game::config_type& cfg) {
   const int width = cfg.width;
   const int height = cfg.height;
 
@@ -214,13 +233,14 @@ class controller {
   public:
     using action_type = typename Game::action_type;
     using state_type = typename Game::state_type;
-    std::vector<action_type> get_moves(const state_type& state) const {
-      return get_moves_impl<Game>(state);
+    using config_type = typename Game::config_type;
+    std::vector<action_type> get_moves(const config_type& cfg, const state_type& state) const {
+      return get_moves_impl<Game>(cfg, state);
     } 
-    state_type initialize_state(config_type cfg) {
-      return initialize_state_impl(cfg);
+    state_type initialize_state(const config_type& cfg) {
+      return initialize_state_impl<Game>(cfg);
     }
-    float make_move(action_type& action, state_type& state) {
-      return make_move_impl<Game>(action, state);
+    float make_move(const config_type& cfg, const action_type& action, state_type& state) {
+      return make_move_impl<Game>(cfg, action, state);
     }
 };

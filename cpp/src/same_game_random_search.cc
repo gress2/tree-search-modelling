@@ -9,5 +9,9 @@ int main() {
   std::srand(std::time(0));
   std::ofstream out_file("depths");
   
-  random_search<same_game>(game_config, 1e5, out_file);
+  same_game::config_type cfg;
+  cfg.height = 15;
+  cfg.width = 15;
+
+  random_search<same_game>(cfg, 1e5, out_file);
 }

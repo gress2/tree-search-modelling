@@ -46,8 +46,10 @@ class monte_carlo_simulator {
   public:
     using state_type = typename Game::state_type;
     using node_type = node<state_type>;
+    using config_type = typename Game::config_type;
   private:
     controller<Game> con_; 
+    const config_type cfg_;
     node_type root_;
     std::vector<node_type*> worklist_;
     std::size_t num_nodes_;
@@ -56,8 +58,9 @@ class monte_carlo_simulator {
     std::mutex worklist_mutex_;
     std::ofstream mixing_data_f_;
   public:
-    monte_carlo_simulator() 
-      : root_(node_type(con_.initialize_state({state_type{}}))),
+    monte_carlo_simulator(const config_type& cfg) 
+      : cfg_(cfg),
+        root_(node_type(con_.initialize_state(cfg_))),
         worklist_({&root_}),
         num_nodes_(0),
         num_rollouts_(20),
@@ -70,12 +73,12 @@ class monte_carlo_simulator {
       for (std::size_t i = 0; i < num_rollouts_; i++) {
         node_type n(*node);
         float reward = n.reward;
-        auto moves = con_.get_moves(n.state);
+        auto moves = con_.get_moves(cfg_, n.state);
         while (moves.size()) {
           int random_idx = std::rand() % moves.size();
-          reward += con_.make_move(moves[random_idx], n.state);
+          reward += con_.make_move(cfg_, moves[random_idx], n.state);
           n.depth++;
-          moves = con_.get_moves(n.state);
+          moves = con_.get_moves(cfg_, n.state);
         }
         rewards.push_back(reward);
       }
@@ -144,7 +147,7 @@ class monte_carlo_simulator {
         std::advance(it, random_idx);
         node_type* cur = *it;
 
-        auto moves = con_.get_moves(cur->state);
+        auto moves = con_.get_moves(cfg_, cur->state);
 
         if (moves.empty()) {
           cur->var = 0;
@@ -154,7 +157,7 @@ class monte_carlo_simulator {
 
         for (auto& move : moves) {
           node<typename Game::state_type> _node(*cur);
-          _node.reward += con_.make_move(move, _node.state);
+          _node.reward += con_.make_move(cfg_, move, _node.state);
           _node.depth++;
           cur->children.push_back(_node);
         }

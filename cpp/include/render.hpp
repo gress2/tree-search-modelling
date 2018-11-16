@@ -1,12 +1,18 @@
 #pragma once
 
-template <class State>
-void render(const State& state);
+template <class Game>
+void render(
+  const typename Game::config_type& cfg,
+  const typename Game::state_type& state
+);
 
 template <>
-void render(const same_game::state_type& state) {
-  const int width = same_game::width;
-  const int height = same_game::height;
+void render<same_game>(
+  const same_game::config_type& cfg, 
+  const same_game::state_type& state
+) {
+  const int width = cfg.width;
+  const int height = cfg.height;
   std::cout << "*********************************" << std::endl;
   for (int x = 0; x < width; x++) {
     std::cout << "| ";

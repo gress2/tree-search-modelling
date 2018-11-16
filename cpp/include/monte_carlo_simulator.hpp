@@ -8,9 +8,9 @@
 
 static std::size_t id = 0;
 
-template <class Board>
+template <class State>
 struct node {
-  Board board;
+  State state;
   std::vector<node> children;
   std::size_t unique_id;
   float reward;
@@ -20,8 +20,8 @@ struct node {
   float var;
   std::size_t depth;
 
-  node(Board&& b) 
-    : board(std::move(b)),
+  node(State&& b) 
+    : state(std::move(b)),
       reward(0),
       simulated(false),
       direct(false),
@@ -31,7 +31,7 @@ struct node {
   {}
 
   node(const node& other)
-   : board(other.board),
+   : state(other.state),
      unique_id(id++),
      reward(other.reward),
      simulated(other.simulated),
@@ -44,8 +44,8 @@ struct node {
 template <class Game>
 class monte_carlo_simulator {
   public:
-    using board_type = typename Game::board_type;
-    using node_type = node<board_type>;
+    using state_type = typename Game::state_type;
+    using node_type = node<state_type>;
   private:
     controller<Game> con_; 
     node_type root_;
@@ -57,7 +57,7 @@ class monte_carlo_simulator {
     std::ofstream mixing_data_f_;
   public:
     monte_carlo_simulator() 
-      : root_(node_type(con_.initialize_board({board_type{}}))),
+      : root_(node_type(con_.initialize_state({state_type{}}))),
         worklist_({&root_}),
         num_nodes_(0),
         num_rollouts_(20),
@@ -70,12 +70,12 @@ class monte_carlo_simulator {
       for (std::size_t i = 0; i < num_rollouts_; i++) {
         node_type n(*node);
         float reward = n.reward;
-        auto moves = con_.get_moves(n.board);
+        auto moves = con_.get_moves(n.state);
         while (moves.size()) {
           int random_idx = std::rand() % moves.size();
-          reward += con_.make_move(moves[random_idx], n.board);
+          reward += con_.make_move(moves[random_idx], n.state);
           n.depth++;
-          moves = con_.get_moves(n.board);
+          moves = con_.get_moves(n.state);
         }
         rewards.push_back(reward);
       }
@@ -126,6 +126,7 @@ class monte_carlo_simulator {
 
         auto it = c_vals.begin();
         mixing_data_f_ << "(" << it->first << "," << it->second << ")";
+        ++it;
         while (it != c_vals.end()) {
           mixing_data_f_ << ", (" << it->first << "," << it->second << ")"; 
           ++it;
@@ -137,13 +138,13 @@ class monte_carlo_simulator {
     }
 
     void simulate() {
-      while (num_nodes_ < 1e3 && !worklist_.empty()) {
+      while (num_nodes_ < 1e5 && !worklist_.empty()) {
         int random_idx = std::rand() % worklist_.size(); 
         auto it = worklist_.begin();
         std::advance(it, random_idx);
         node_type* cur = *it;
 
-        auto moves = con_.get_moves(cur->board);
+        auto moves = con_.get_moves(cur->state);
 
         if (moves.empty()) {
           cur->var = 0;
@@ -152,8 +153,8 @@ class monte_carlo_simulator {
         }
 
         for (auto& move : moves) {
-          node<typename Game::board_type> _node(*cur);
-          _node.reward += con_.make_move(move, _node.board);
+          node<typename Game::state_type> _node(*cur);
+          _node.reward += con_.make_move(move, _node.state);
           _node.depth++;
           cur->children.push_back(_node);
         }

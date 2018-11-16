@@ -1,19 +1,19 @@
 import numpy as np
 from scipy.special import digamma, gamma
 from random import shuffle
+import math
 
 depths = list()
 
-with open('mixing_data') as md_f:
+with open('depths') as md_f:
     lines = md_f.readlines()
-    for line in lines:
-        split = line.split(' ')
-        depth = float(split[2])
-        depths.append(depth)
+    depths = [float(l[:-1]) for l in lines]
 
-r = 1
-p = 0.5
-learning_rate = 1e-3
+print(depths)
+
+r = 190
+p = 0.26
+learning_rate = .001 
 while True:
     shuffle(depths)
     r_start = r
@@ -24,6 +24,8 @@ while True:
         grad_p = (x / p) - (r / (1 - p))
         r = r + learning_rate * grad_r
         p = p + learning_rate * grad_p
+    print(r)
+    print(p)
     if (np.abs(r_start - r) < 1e-3 and np.abs(p_start - p) < 1e-3):
         break
 

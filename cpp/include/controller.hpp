@@ -9,7 +9,7 @@
 void find_adjacent(
     same_game::action_type action, 
     std::set<same_game::action_type>& adjacent,
-    const same_game::board_type& board
+    const same_game::state_type& state
 ) {
 
   using action_type = same_game::action_type;
@@ -20,7 +20,7 @@ void find_adjacent(
   short x = action.first;
   short y = action.second;
   
-  short tile = board[x][y];
+  short tile = state[x][y];
 
   action_type up(x, y + 1);
   action_type right(x + 1, y);
@@ -28,30 +28,30 @@ void find_adjacent(
   action_type left(x - 1, y);
 
   if (!adjacent.count(up) && up.second < width && 
-      board[up.first][up.second] == tile) {
-    find_adjacent(up, adjacent, board);
+      state[up.first][up.second] == tile) {
+    find_adjacent(up, adjacent, state);
   }
 
   if (!adjacent.count(right) && right.first < width && 
-      board[right.first][right.second] == tile) {
-    find_adjacent(right, adjacent, board);
+      state[right.first][right.second] == tile) {
+    find_adjacent(right, adjacent, state);
   }
 
   if (!adjacent.count(down) && down.second >= 0 && 
-      board[down.first][down.second] == tile) {
-    find_adjacent(down, adjacent, board);
+      state[down.first][down.second] == tile) {
+    find_adjacent(down, adjacent, state);
   }
 
   if (!adjacent.count(left) && left.first >= 0 && 
-      board[left.first][left.second] == tile) {
-    find_adjacent(left, adjacent, board);
+      state[left.first][left.second] == tile) {
+    find_adjacent(left, adjacent, state);
   }
 }
 
-void collapse(same_game::board_type& board) {
+void collapse(same_game::state_type& state) {
   const int width = same_game::width;
   for (int x = 0; x < width; x++) {
-    std::vector<short>& col = board[x];
+    std::vector<short>& col = state[x];
     for (auto it = col.begin(); it != col.end();) {
       if (*it == 0) {
         it = col.erase(it);
@@ -63,36 +63,36 @@ void collapse(same_game::board_type& board) {
     col.insert(col.end(), num_to_fill, 0);
   }
 
-  for (auto it = board.begin(); it != board.end();) {
+  for (auto it = state.begin(); it != state.end();) {
     std::vector<short>& col = *it;
     bool all_zero = std::all_of(col.begin(), col.end(),
         [](short i) { return i == 0; });
     if (all_zero) {
-      it = board.erase(it);
+      it = state.erase(it);
     } else {
       ++it;
     }
   }
 
-  int num_to_fill = width - board.size();
+  int num_to_fill = width - state.size();
   std::vector<short> to_fill(width, 0);
-  board.insert(board.end(), num_to_fill, to_fill);
+  state.insert(state.end(), num_to_fill, to_fill);
 }
 
-bool is_game_over(const same_game::board_type& board) {
+bool is_game_over(const same_game::state_type& state) {
   const int width = same_game::width;
   const int height = same_game::height;
 
   for (int x = 0; x < width; x++) {
     for (int y = 0; y < height; y++) {
-      short tile = board[x][y];
+      short tile = state[x][y];
       if (tile == 0) {
         break;
       }
-      if (y + 1 < width && board[x][y] == tile) {
+      if (y + 1 < width && state[x][y] == tile) {
         return false;
       }
-      if (x + 1 < width && board[x][y] == tile) {
+      if (x + 1 < width && state[x][y] == tile) {
         return false;
       }
     }
@@ -100,14 +100,14 @@ bool is_game_over(const same_game::board_type& board) {
   return true;
 }
 
-int num_tiles_remaining(const same_game::board_type& board) {
+int num_tiles_remaining(const same_game::state_type& state) {
   const int width = same_game::width;
   const int height = same_game::height;
 
   int ctr = 0;
   for (int x = 0; x < width; x++) {
     for (int y = 0; y < height; y++) {
-      if (board[x][y] == 0) {
+      if (state[x][y] == 0) {
         continue;
       } 
       ctr++;
@@ -117,28 +117,28 @@ int num_tiles_remaining(const same_game::board_type& board) {
 }
 
 template <class Game>
-float make_move_impl(const typename Game::action_type& action, typename Game::board_type& board);
+float make_move_impl(const typename Game::action_type& action, typename Game::state_type& state);
 
 template <>
 float make_move_impl<same_game>(const typename same_game::action_type& action, 
-    typename same_game::board_type& board) {
+    typename same_game::state_type& state) {
 
   using action_type = typename same_game::action_type;
 
   std::set<action_type> adjacent;
-  find_adjacent(action, adjacent, board);
+  find_adjacent(action, adjacent, state);
 
   for (auto& elem : adjacent) {
-    board[elem.first][elem.second] = 0;
+    state[elem.first][elem.second] = 0;
   }
 
-  collapse(board);
+  collapse(state);
 
   int num_removed = adjacent.size();
   int reward = (num_removed - 2) * (num_removed - 2);
 
-  if (is_game_over(board)) {
-    int num_remaining = num_tiles_remaining(board);
+  if (is_game_over(state)) {
+    int num_remaining = num_tiles_remaining(state);
     if (!num_remaining) {
       reward += 1000;
     } else {
@@ -149,10 +149,10 @@ float make_move_impl<same_game>(const typename same_game::action_type& action,
 }
 
 template <class Game>
-std::vector<typename Game::action_type> get_moves_impl(const typename Game::board_type& board);
+std::vector<typename Game::action_type> get_moves_impl(const typename Game::state_type& state);
 
 template <>
-std::vector<same_game::action_type> get_moves_impl<same_game>(const typename same_game::board_type& board) {
+std::vector<same_game::action_type> get_moves_impl<same_game>(const typename same_game::state_type& state) {
   using action_type = typename same_game::action_type;
   const int width = same_game::width;
   const int height = same_game::height;
@@ -162,7 +162,7 @@ std::vector<same_game::action_type> get_moves_impl<same_game>(const typename sam
 
   for (int x = 0; x < width; x++) {
     for (int y = 0; y < height; y++) {
-      short tile = board[x][y];
+      short tile = state[x][y];
       if (tile == 0) {
         break;   
       }
@@ -172,7 +172,7 @@ std::vector<same_game::action_type> get_moves_impl<same_game>(const typename sam
       }
 
       std::set<action_type> adjacent;
-      find_adjacent(cur, adjacent, board);
+      find_adjacent(cur, adjacent, state);
 
       if (adjacent.size() > 1) {
         actions.push_back(cur);
@@ -184,43 +184,40 @@ std::vector<same_game::action_type> get_moves_impl<same_game>(const typename sam
   return actions;
 }; 
 
-template <class Board>
-Board initialize_board_impl(Board board);
+template <class State>
+State initialize_state_impl(State state);
 
 template <>
-typename same_game::board_type initialize_board_impl(typename same_game::board_type board) {
-  std::cout << "Initializing root board...";
-  std::srand(32);
+typename same_game::state_type initialize_state_impl(typename same_game::state_type state) {
 
   const int width = same_game::width;
   const int height = same_game::height;
 
-  using col_type = typename same_game::board_type::value_type;
+  using col_type = typename same_game::state_type::value_type;
 
   for (int i = 0; i < width; i++) {
     col_type col;
     for (int j = 0; j < height; j++) {
       col.push_back((std::rand() % 5) + 1);
     }
-    board.push_back(col);
+    state.push_back(col);
   }
-  std::cout << "Done." << std::endl;
 
-  return board;
+  return state;
 }
 
 template <class Game>
 class controller {
   public:
     using action_type = typename Game::action_type;
-    using board_type = typename Game::board_type;
-    std::vector<action_type> get_moves(const board_type& board) const {
-      return get_moves_impl<Game>(board);
+    using state_type = typename Game::state_type;
+    std::vector<action_type> get_moves(const state_type& state) const {
+      return get_moves_impl<Game>(state);
     } 
-    board_type initialize_board(board_type board) {
-      return initialize_board_impl(board);
+    state_type initialize_state(state_type state) {
+      return initialize_state_impl(state);
     }
-    float make_move(action_type& action, board_type& board) {
-      return make_move_impl<Game>(action, board);
+    float make_move(action_type& action, state_type& state) {
+      return make_move_impl<Game>(action, state);
     }
 };

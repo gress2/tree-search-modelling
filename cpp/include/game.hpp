@@ -18,19 +18,31 @@ struct same_game {
   }
 };
 
-struct v0_state {
+struct generic_game_state {
   float mean;
   float var;
   int fail_count;
   int depth;
+  int num_children;
+  std::vector<float> child_means;
+  std::vector<float> child_vars;
 };
 
-struct v0_cfg {
-  
+struct generic_game_cfg {
+  float depth_r;
+  float depth_p;
+  float disp_mean_delta;
+  float disp_mean_beta;
+  float disp_var_delta;
+  float disp_var_beta;
+  float nc_alpha;
+  float nc_beta;
+  float root_mean;
+  float root_var;
 };
 
-struct v0_game {
-  using state_type = v0_state;
-  using action_type = void;
-  using config_type = v0_cfg;
+struct generic_game {
+  using state_type = generic_game_state;
+  using action_type = int;
+  using config_type = generic_game_cfg;
 };

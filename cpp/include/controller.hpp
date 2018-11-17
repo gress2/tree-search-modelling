@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <iostream>
+#include <random>
 #include <set>
 #include <vector>
 #include "game.hpp"
@@ -133,9 +134,9 @@ float make_move_impl(
 
 template <>
 float make_move_impl<same_game>(
-  const typename same_game::config_type& cfg,
-  const typename same_game::action_type& action, 
-  typename same_game::state_type& state
+  const same_game::config_type& cfg,
+  const same_game::action_type& action, 
+  same_game::state_type& state
 ) {
 
   using action_type = typename same_game::action_type;
@@ -171,10 +172,10 @@ std::vector<typename Game::action_type> get_moves_impl(
 
 template <>
 std::vector<same_game::action_type> get_moves_impl<same_game>(
-  const typename same_game::config_type& cfg,
-  const typename same_game::state_type& state
+  const same_game::config_type& cfg,
+  const same_game::state_type& state
 ) {
-  using action_type = typename same_game::action_type;
+  using action_type = same_game::action_type;
   const int width = cfg.width;
   const int height = cfg.height;
 
@@ -209,7 +210,9 @@ template <class Game>
 typename Game::state_type initialize_state_impl(const typename Game::config_type& cfg);
 
 template <>
-typename same_game::state_type initialize_state_impl<same_game>(const typename same_game::config_type& cfg) {
+same_game::state_type initialize_state_impl<same_game>(
+  const same_game::config_type& cfg
+) {
   const int width = cfg.width;
   const int height = cfg.height;
 
@@ -226,6 +229,117 @@ typename same_game::state_type initialize_state_impl<same_game>(const typename s
   }
 
   return state;
+}
+
+int get_num_children(const generic_game::config_type& cfg, int depth) {
+  return 0;
+}
+
+std::vector<float> sample_uniform_dirichlet(float alpha, int n) {
+  std::default_random_engine generator;
+  std::gamma_distribution<double> distribution(alpha, 1);
+
+  std::vector<float> samples;
+  for (int i = 0; i < n; i++) {
+    samples.push_back(distribution(generator));
+  }
+
+  float sum = 0;
+  for (auto& num : samples) {
+    sum += num;
+  }
+  for (auto& num : samples) {
+    num /= sum;
+  }
+  return samples;
+}
+
+template <class T>
+float calc_variance(std::vector<T>& vec) {
+  float mean = 0;
+  for (auto& num : vec) {
+    mean += num;
+  }
+  mean /= vec.size();
+
+  float var = 0;
+  for (auto& num : vec) {
+    var += (num - mean) * (num - mean);
+  }
+  return var;
+}
+
+std::vector<float> get_child_means(
+  const generic_game::config_type& cfg,
+  float parent_mean,
+  float parent_var,
+  int parent_depth,
+  int num_children
+) {
+  float alpha = cfg.disp_mean_delta + parent_depth * cfg.disp_mean_beta;
+
+  std::vector<float> child_means;
+
+  float coeff = num_children * parent_mean;
+
+  while (true) {
+    child_means = sample_uniform_dirichlet(alpha, num_children);
+    for (auto& mean : child_means) {
+      mean *= coeff;
+    }
+    if (calc_variance(child_means) < parent_var) {
+      break;
+    }
+  }
+
+  return child_means;
+}
+
+std::vector<float> get_child_vars(
+  const generic_game::config_type& cfg,
+  float parent_var,
+  std::vector<float>& child_means,
+  int parent_depth
+) {
+  float alpha = cfg.disp_var_delta + parent_depth * cfg.disp_var_beta;
+  int num_children = child_means.size();
+  std::vector<float> child_vars = sample_uniform_dirichlet(alpha, num_children);
+  
+  float coeff = num_children * (parent_var - calc_variance(child_means));
+  for (auto& var : child_vars) {
+    var *= coeff;
+  }
+  return child_vars;
+}
+
+template <>
+generic_game::state_type initialize_state_impl<generic_game>(
+  const generic_game::config_type& cfg
+) {
+  generic_game::state_type state;
+  state.depth = 0;
+  state.fail_count = 0;
+  state.mean = cfg.root_mean;
+  state.var = cfg.root_var;
+  state.num_children = get_num_children(cfg, state.depth);
+  state.child_means = 
+    get_child_means(cfg, state.mean, state.var, state.depth, state.num_children);
+  state.child_vars = 
+    get_child_vars(cfg, state.var, state.child_means, state.depth);
+
+  return state;
+}
+
+template <>
+std::vector<generic_game::action_type> get_moves_impl<generic_game>(
+  const generic_game::config_type& cfg,
+  const generic_game::state_type& state
+) {
+  std::vector<generic_game::action_type> actions;
+  for (int i = 0; i < state.num_children; i++) {
+    actions.push_back(i);
+  }
+  return actions;
 }
 
 template <class Game>

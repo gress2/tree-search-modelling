@@ -8,6 +8,8 @@
 #include <vector>
 #include "game.hpp"
 
+static std::default_random_engine generator(time(0));
+
 void find_adjacent(
     const same_game::config_type& cfg,
     same_game::action_type action, 
@@ -232,11 +234,12 @@ same_game::state_type initialize_state_impl<same_game>(
 }
 
 int get_num_children(const generic_game::config_type& cfg, int depth) {
-  return 0;
-}
+  float lambda = cfg.nc_alpha + depth * cfg.nc_beta;
+  std::poisson_distribution<int> distribution(lambda);
+  return distribution(generator);
+} 
 
 std::vector<float> sample_uniform_dirichlet(float alpha, int n) {
-  std::default_random_engine generator;
   std::gamma_distribution<double> distribution(alpha, 1);
 
   std::vector<float> samples;
@@ -269,6 +272,14 @@ float calc_variance(std::vector<T>& vec) {
   return var;
 }
 
+template <class T>
+void print_vec(const std::vector<T>& vec) {
+  for (auto& elem : vec) {
+    std::cout << elem << " ";
+  }
+  std::cout << std::endl;
+}
+
 std::vector<float> get_child_means(
   const generic_game::config_type& cfg,
   float parent_mean,
@@ -287,6 +298,13 @@ std::vector<float> get_child_means(
     for (auto& mean : child_means) {
       mean *= coeff;
     }
+    std::cout << alpha << std::endl;
+    print_vec(child_means);
+
+    float child_mean_variance = calc_variance(child_means);
+    std::cout << "child_mean_variance: " << child_mean_variance << std::endl;
+    std::cout << "parent_var: " << parent_var << std::endl;
+
     if (calc_variance(child_means) < parent_var) {
       break;
     }
@@ -312,6 +330,11 @@ std::vector<float> get_child_vars(
   return child_vars;
 }
 
+bool is_failure(const generic_game::config_type& cfg) {
+  std::bernoulli_distribution distribution(cfg.depth_p);
+  return distribution(generator);
+}
+
 template <>
 generic_game::state_type initialize_state_impl<generic_game>(
   const generic_game::config_type& cfg
@@ -321,6 +344,8 @@ generic_game::state_type initialize_state_impl<generic_game>(
   state.fail_count = 0;
   state.mean = cfg.root_mean;
   state.var = cfg.root_var;
+  state.is_terminal = false;
+
   state.num_children = get_num_children(cfg, state.depth);
   state.child_means = 
     get_child_means(cfg, state.mean, state.var, state.depth, state.num_children);
@@ -340,6 +365,39 @@ std::vector<generic_game::action_type> get_moves_impl<generic_game>(
     actions.push_back(i);
   }
   return actions;
+}
+
+template <>
+float make_move_impl<generic_game>(
+  const generic_game::config_type& cfg,
+  const generic_game::action_type& action, 
+  generic_game::state_type& state
+) {
+  state.depth++;
+  bool is_fail_roll = is_failure(cfg);
+  if (is_fail_roll) {
+    state.fail_count++;
+  }
+  if (state.fail_count >= cfg.depth_r) {
+    state.is_terminal = true;
+  }
+  state.mean = state.child_means[action];
+  
+  if (state.is_terminal) {
+    state.var = 0;
+    state.num_children = 0;
+    state.child_means = {};
+    state.child_vars = {};
+  } else {
+    state.var = state.child_vars[action];
+    state.num_children = get_num_children(cfg, state.depth);
+    state.child_means = 
+      get_child_means(cfg, state.mean, state.var, state.depth, state.num_children);
+    state.child_vars = 
+      get_child_vars(cfg, state.var, state.child_means, state.depth);
+  }
+
+  return state.is_terminal ? state.mean : 0;
 }
 
 template <class Game>

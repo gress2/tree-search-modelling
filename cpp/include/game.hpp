@@ -26,10 +26,11 @@ struct generic_game_state {
   int num_children;
   std::vector<float> child_means;
   std::vector<float> child_vars;
+  bool is_terminal;
 };
 
 struct generic_game_cfg {
-  float depth_r;
+  int depth_r;
   float depth_p;
   float disp_mean_delta;
   float disp_mean_beta;

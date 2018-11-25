@@ -16,12 +16,13 @@ struct same_game {
   static void action_print(const action_type& action) {
     std::cout << "(" << action.first << ", " << action.second << ")"; 
   }
+  const static std::string name;
 };
 
 struct generic_game_state {
   float mean;
   float var;
-  int fail_count;
+  int succ_count;
   int depth;
   int num_children;
   std::vector<float> child_means;
@@ -46,4 +47,5 @@ struct generic_game {
   using state_type = generic_game_state;
   using action_type = int;
   using config_type = generic_game_cfg;
+  const static std::string name;
 };

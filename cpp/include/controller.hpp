@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <cmath>
 #include <cstdlib>
 #include <iostream>
 #include <random>
@@ -234,7 +235,7 @@ same_game::state_type initialize_state_impl<same_game>(
 }
 
 int get_num_children(const generic_game::config_type& cfg, int depth) {
-  float lambda = cfg.nc_alpha + depth * cfg.nc_beta;
+  float lambda = std::exp(cfg.nc_alpha + depth * cfg.nc_beta);
   std::poisson_distribution<int> distribution(lambda);
   return distribution(generator);
 } 
@@ -269,7 +270,7 @@ float calc_variance(std::vector<T>& vec) {
   for (auto& num : vec) {
     var += (num - mean) * (num - mean);
   }
-  return var;
+  return var / vec.size();
 }
 
 template <class T>
@@ -298,14 +299,16 @@ std::vector<float> get_child_means(
     for (auto& mean : child_means) {
       mean *= coeff;
     }
-    std::cout << alpha << std::endl;
-    print_vec(child_means);
 
-    float child_mean_variance = calc_variance(child_means);
-    std::cout << "child_mean_variance: " << child_mean_variance << std::endl;
-    std::cout << "parent_var: " << parent_var << std::endl;
+    float ssm = 0;
+    for (auto& mean : child_means) {
+      ssm += mean * mean;
+    }
 
-    if (calc_variance(child_means) < parent_var) {
+    float t1 = ssm;
+    float t2 = num_children * (parent_var + (parent_mean * parent_mean));
+
+    if (true) {
       break;
     }
   }
@@ -315,6 +318,7 @@ std::vector<float> get_child_means(
 
 std::vector<float> get_child_vars(
   const generic_game::config_type& cfg,
+  float parent_mean,
   float parent_var,
   std::vector<float>& child_means,
   int parent_depth
@@ -322,15 +326,23 @@ std::vector<float> get_child_vars(
   float alpha = cfg.disp_var_delta + parent_depth * cfg.disp_var_beta;
   int num_children = child_means.size();
   std::vector<float> child_vars = sample_uniform_dirichlet(alpha, num_children);
-  
-  float coeff = num_children * (parent_var - calc_variance(child_means));
+
+  float t1 = num_children * parent_var;
+  float t2 = num_children * parent_mean * parent_mean;
+  float t3 = 0;
+  for (auto& mean : child_means) {
+    t3 += mean * mean;
+  }
+
+  float coeff = t1 + t2 - t3;
+
   for (auto& var : child_vars) {
     var *= coeff;
   }
   return child_vars;
 }
 
-bool is_failure(const generic_game::config_type& cfg) {
+bool is_success_roll(const generic_game::config_type& cfg) {
   std::bernoulli_distribution distribution(cfg.depth_p);
   return distribution(generator);
 }
@@ -341,7 +353,7 @@ generic_game::state_type initialize_state_impl<generic_game>(
 ) {
   generic_game::state_type state;
   state.depth = 0;
-  state.fail_count = 0;
+  state.succ_count = 0;
   state.mean = cfg.root_mean;
   state.var = cfg.root_var;
   state.is_terminal = false;
@@ -350,7 +362,7 @@ generic_game::state_type initialize_state_impl<generic_game>(
   state.child_means = 
     get_child_means(cfg, state.mean, state.var, state.depth, state.num_children);
   state.child_vars = 
-    get_child_vars(cfg, state.var, state.child_means, state.depth);
+    get_child_vars(cfg, state.mean, state.var, state.child_means, state.depth);
 
   return state;
 }
@@ -374,14 +386,17 @@ float make_move_impl<generic_game>(
   generic_game::state_type& state
 ) {
   state.depth++;
-  bool is_fail_roll = is_failure(cfg);
-  if (is_fail_roll) {
-    state.fail_count++;
+
+  while (is_success_roll(cfg)) {
+    state.succ_count++;
   }
-  if (state.fail_count >= cfg.depth_r) {
+
+  state.mean = state.child_means[action];
+  state.num_children = get_num_children(cfg, state.depth);
+
+  if (state.succ_count >= cfg.depth_r || state.num_children == 0) {
     state.is_terminal = true;
   }
-  state.mean = state.child_means[action];
   
   if (state.is_terminal) {
     state.var = 0;
@@ -390,11 +405,10 @@ float make_move_impl<generic_game>(
     state.child_vars = {};
   } else {
     state.var = state.child_vars[action];
-    state.num_children = get_num_children(cfg, state.depth);
     state.child_means = 
       get_child_means(cfg, state.mean, state.var, state.depth, state.num_children);
     state.child_vars = 
-      get_child_vars(cfg, state.var, state.child_means, state.depth);
+      get_child_vars(cfg, state.mean, state.var, state.child_means, state.depth);
   }
 
   return state.is_terminal ? state.mean : 0;

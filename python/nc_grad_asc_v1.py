@@ -8,10 +8,10 @@ with open('same_game_nc_dist') as dist_f:
 ncs, depths = zip(*z)
 print(ncs, depths)
         
-t1 = .000001 
-t2 = .000001
-t3 = .000001
-learning_rate = 1e-5
+t1 = 1 
+t2 = 1
+t3 = 1
+learning_rate = 1e-8
 
 while True:
     concat = list(zip(ncs, depths))
@@ -21,11 +21,11 @@ while True:
     t2_start = t2
     t3_start = t3
     for i in range(len(ncs)):
-        y = ncs[i]
+        x = ncs[i]
         d = depths[i]
-        grad_t1 = y - np.exp(t1+t2*d+t3*d*d)
-        grad_t2 = y*d - d*np.exp(t1+t2*d+t3*d*d)
-        grad_t3 = y*d**2 - d*d*np.exp(t1+t2*d+t3*d*d)
+        grad_t1 = (x / (t1 + t2 * d + t2 * d**2)) - 1
+        grad_t2 = (d * x / (t1 + t2 * d + t2 * d**2)) - d
+        grad_t3 = (d**2 * x / (t1 + t2 * d + t2 * d**2)) - d**2
         t1 = t1 + learning_rate * grad_t1
         t2 = t2 + learning_rate * grad_t2
         t3 = t3 + learning_rate * grad_t3

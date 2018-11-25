@@ -26,8 +26,8 @@ def mix(group):
     var_p = var_t1 + var_t2 - var_t3
     return (mu_p, var_p)
 
-arity = 3
-l = [(10, 2), (20, 5), (5, 1), (33, 6.5), (18, 9.6), (0, 12), (20, 15), (50, 8), (5, 2), (8, 9), (100, 7), (50, 8)]
+arity = 2
+l = [(5, 10), (60, 10)]
 groups = list()
 tiers = list()
 
@@ -71,7 +71,7 @@ def dfs(root):
     global graph_str
     # generate graph image using matplotlib
     pdf = lambda x: scipy.stats.norm.pdf(x, root.mu, root.sigma2**.5)
-    x = np.arange(root.mu - 100, root.mu + 100)
+    x = np.arange(root.mu - 10, root.mu + 10, .1)
     plt.figure()
     plt.title('mu={:10.2f}'.format(root.mu) + ' sigma2={:10.4f}'.format(root.sigma2))
     plt.plot(x, pdf(x))

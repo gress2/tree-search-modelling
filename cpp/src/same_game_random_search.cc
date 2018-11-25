@@ -13,5 +13,5 @@ int main() {
   cfg.height = 15;
   cfg.width = 15;
 
-  random_search<same_game>(cfg, 1e5, out_file);
+  random_search<same_game>(cfg, 1e4, out_file);
 }

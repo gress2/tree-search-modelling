@@ -11,8 +11,8 @@ with open('depths') as md_f:
 
 print(depths)
 
-r = 190
-p = 0.26
+r = 128
+p = 0.362
 learning_rate = .001 
 while True:
     shuffle(depths)
@@ -26,7 +26,7 @@ while True:
         p = p + learning_rate * grad_p
     print(r)
     print(p)
-    if (np.abs(r_start - r) < 1e-3 and np.abs(p_start - p) < 1e-3):
+    if (np.abs(r_start - r) < 1e-5 and np.abs(p_start - p) < 1e-5):
         break
 
 print('p: ' + str(p))

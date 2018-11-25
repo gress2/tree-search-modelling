@@ -120,7 +120,7 @@ class monte_carlo_simulator {
         float v2 = 0;
         for (std::pair<float, float>& p : c_vals) {
           mean += p.first / static_cast<float>(n);
-          v1 += p.second / n;
+          v1 += (p.second) / n;
           v2 += (p.first * p.first) / n; 
         }
         float var = v1 + v2 - (mean * mean);
@@ -141,7 +141,7 @@ class monte_carlo_simulator {
     }
 
     void simulate() {
-      while (num_nodes_ < 1e5 && !worklist_.empty()) {
+      while (num_nodes_ < 1e3 && !worklist_.empty()) {
         int random_idx = std::rand() % worklist_.size(); 
         auto it = worklist_.begin();
         std::advance(it, random_idx);

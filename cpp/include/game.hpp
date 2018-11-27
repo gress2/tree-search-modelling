@@ -13,6 +13,7 @@ struct same_game {
   using state_type = std::vector<std::vector<short>>;
   using action_type = std::pair<short, short>; 
   using config_type = same_game_cfg;
+  constexpr static action_type null_action = std::make_pair(-1, -1);
   static void action_print(const action_type& action) {
     std::cout << "(" << action.first << ", " << action.second << ")"; 
   }
@@ -48,4 +49,5 @@ struct generic_game {
   using action_type = int;
   using config_type = generic_game_cfg;
   const static std::string name;
+  constexpr static action_type null_action = -1;
 };

@@ -4,8 +4,11 @@
 #include <random>
 #include <stack>
 #include <fstream>
+#include <sstream>
 
 #include "controller.hpp"
+
+static std::size_t num_mcts_nodes = 0;
 
 namespace search {
 template <class Game>
@@ -116,6 +119,7 @@ void random_search(
 template <class Game>
 struct mcts_node {
   using state_type = typename Game::state_type;
+  using action_type = typename Game::action_type;
 
   state_type state;
   std::vector<mcts_node<Game>> children;
@@ -124,6 +128,8 @@ struct mcts_node {
   std::size_t visit_count;
   float q;
   mcts_node* parent;
+  std::size_t node_id;
+  action_type action;
 
   mcts_node(state_type b)
     : state(b),
@@ -132,29 +138,56 @@ struct mcts_node {
       depth(0),
       visit_count(0),
       q(0),
-      parent(nullptr)
+      parent(nullptr),
+      node_id(num_mcts_nodes),
+      action(Game::null_action)
   {}
 
-  mcts_node(const mcts_node& other)
-    : state(other.state),
-      children(other.children),
-      is_terminal(other.is_terminal),
-      depth(other.depth),
-      visit_count(other.visit_count),
-      q(other.q),
-      parent(other.parent)
-  {}
+  std::string to_gv_helper() const {
+    std::stringstream ss;
+
+    ss << " " << node_id << "[label=\"(" << state.mean << "," << visit_count
+      << ")\"]" << std::endl;
+    for (auto& child : children) {
+      ss << " " << node_id << " -- " << child.node_id << std::endl;
+      ss << child.to_gv_helper() << std::endl;
+    }
+    return ss.str();
+  }
+
+  std::string to_gv() const {
+    std::stringstream ss;
+    ss << "graph {" << std::endl << to_gv_helper() << "}" << std::endl;
+    return ss.str(); 
+  }
+
 };
 
-template <class State, class Controller, class Config>
-float default_policy(State state, Controller& con, Config& cfg) {
-  float reward = 0;
-  auto moves = con.get_moves(cfg, state);
+template <class Game>
+float default_policy(mcts_node<Game>* v, controller<Game>& con,
+    typename Game::config_type& cfg, float& high_score, 
+    std::vector<typename Game::action_type>& hs_seq) {
+  // std::cout << __PRETTY_FUNCTION__ << std::endl;
 
+  using action_type = typename Game::action_type;
+  using state_type = typename Game::state_type;
+
+  state_type state = v->state;
+  std::vector<action_type> seq;
+
+  std::vector<action_type> moves = con.get_moves(cfg, state);
+
+  float reward = 0;
   while (!moves.empty()) {
     int random_idx = std::rand() % moves.size();
     auto& move = moves[random_idx];
+    seq.push_back(move);
     reward += con.make_move(cfg, move, state); 
+    moves = con.get_moves(cfg, state);
+  }
+
+  if (reward > high_score) {
+
   }
 
   return reward;
@@ -162,6 +195,7 @@ float default_policy(State state, Controller& con, Config& cfg) {
 
 template <class Node>
 Node* best_child(Node* v) {
+  // std::cout << __PRETTY_FUNCTION__ << std::endl;
   std::size_t visit_parent = v->visit_count;
 
   constexpr float c = 1;
@@ -186,16 +220,21 @@ Node* best_child(Node* v) {
 
 template <class Game, class Controller, class Config>
 mcts_node<Game>* tree_policy(mcts_node<Game>* v, Controller& con, Config& cfg) {
+  // std::cout << __PRETTY_FUNCTION__ << std::endl;
   while (!v->is_terminal) {
     if (v->children.empty()) {
       auto moves = con.get_moves(cfg, v->state); 
       if (moves.empty()) {
+        std::cout << "Reached terminal" << std::endl;
         v->is_terminal = true;
         break;
       }
       for (auto& move : moves) {
-        mcts_node<Game> cur(*v); 
+        mcts_node<Game> cur(v->state); 
+        cur.action = move;
+        num_mcts_nodes++;
         cur.parent = v;
+        cur.depth = v->depth + 1;
         con.make_move(cfg, move, cur.state);
         v->children.push_back(cur);
       }
@@ -210,6 +249,7 @@ mcts_node<Game>* tree_policy(mcts_node<Game>* v, Controller& con, Config& cfg) {
 
 template <class Game>
 void backup(float reward, mcts_node<Game>* node) {
+  // std::cout << __PRETTY_FUNCTION__ << std::endl;
   while (node) {
     node->q += reward;
     node->visit_count++;
@@ -225,13 +265,21 @@ void uct(
 ) {
   using state_type = typename Game::state_type;
   using node_type = mcts_node<Game>;
+  using action_type = typename Game::action_type;
   controller<Game> con;
   std::string game_name = Game::name;
 
+  float high_score = std::numeric_limits<float>::min();
+  std::vector<action_type> hs_seq;
+
   node_type root(con.initialize_state(cfg)); 
+
   for (std::size_t i = 0; i < num_iters; i++) {
     node_type* v = tree_policy(&root, con, cfg);  
-    float reward = default_policy(v->state, con, cfg);
+    float reward = default_policy(v, con, cfg, high_score, hs_seq);
     backup(reward, v);
   }
+
+  std::ofstream gv("tree.dot");
+  gv << root.to_gv() << std::endl;
 }

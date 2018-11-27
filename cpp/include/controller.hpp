@@ -392,6 +392,7 @@ float make_move_impl<generic_game>(
   }
 
   state.mean = state.child_means[action];
+
   state.num_children = get_num_children(cfg, state.depth);
 
   if (state.succ_count >= cfg.depth_r || state.num_children == 0) {

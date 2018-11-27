@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <cmath>
 #include <random>
 #include <stack>
@@ -146,8 +147,7 @@ struct mcts_node {
   std::string to_gv_helper() const {
     std::stringstream ss;
 
-    ss << " " << node_id << "[label=\"(" << state.mean << "," << visit_count
-      << ")\"]" << std::endl;
+    ss << " " << node_id << "[label=\"" << Game::state_to_str(state) << "\"]" << std::endl;
     for (auto& child : children) {
       ss << " " << node_id << " -- " << child.node_id << std::endl;
       ss << child.to_gv_helper() << std::endl;
@@ -162,6 +162,17 @@ struct mcts_node {
   }
 
 };
+
+template <class Game>
+std::vector<typename Game::action_type> get_action_seq(mcts_node<Game>* v) {
+  std::vector<typename Game::action_type> seq;
+  while (v->parent) {
+    seq.push_back(v->action);
+    v = v->parent;
+  }
+  std::reverse(seq.begin(), seq.end());
+  return seq;
+} 
 
 template <class Game>
 float default_policy(mcts_node<Game>* v, controller<Game>& con,
@@ -187,7 +198,11 @@ float default_policy(mcts_node<Game>* v, controller<Game>& con,
   }
 
   if (reward > high_score) {
-
+    high_score = reward;
+    auto seq_to_v = get_action_seq(v);
+    seq.insert(seq.end(), std::make_move_iterator(seq_to_v.begin()),
+        std::make_move_iterator(seq_to_v.end()));
+    hs_seq = seq;
   }
 
   return reward;
@@ -225,7 +240,6 @@ mcts_node<Game>* tree_policy(mcts_node<Game>* v, Controller& con, Config& cfg) {
     if (v->children.empty()) {
       auto moves = con.get_moves(cfg, v->state); 
       if (moves.empty()) {
-        std::cout << "Reached terminal" << std::endl;
         v->is_terminal = true;
         break;
       }
@@ -279,6 +293,13 @@ void uct(
     float reward = default_policy(v, con, cfg, high_score, hs_seq);
     backup(reward, v);
   }
+
+  std::cout << "hs: " << high_score << std::endl;
+  std::cout << "seq: "; 
+  for (auto& elem : hs_seq) {
+    std::cout << Game::action_to_str(elem) << " ";
+  }
+  std::cout << std::endl;
 
   std::ofstream gv("tree.dot");
   gv << root.to_gv() << std::endl;

@@ -147,7 +147,7 @@ struct mcts_node {
   std::string to_gv_helper() const {
     std::stringstream ss;
 
-    ss << " " << node_id << "[label=\"" << Game::state_to_str(state) << "\"]" << std::endl;
+    ss << " " << node_id << "[label=\"(" << q << ", " << visit_count << ")\"]" << std::endl;
     for (auto& child : children) {
       ss << " " << node_id << " -- " << child.node_id << std::endl;
       ss << child.to_gv_helper() << std::endl;
@@ -272,6 +272,34 @@ void backup(float reward, mcts_node<Game>* node) {
 } 
 
 template <class Game>
+mcts_node<Game>* find_child_by_action(mcts_node<Game>* parent, typename Game::action_type& action) {
+  mcts_node<Game>* target_child = nullptr;
+  for (auto& child : parent->children) {
+    if (child.action == action) {
+      target_child = &child;
+      break;
+    }
+  } 
+  return target_child;
+}
+
+template <class Game>
+std::vector<float> q_trace(mcts_node<Game>* root, std::vector<typename Game::action_type>& hs_seq) {
+  mcts_node<Game>* cur = root;
+  std::vector<float> qs = { root->q / root->visit_count };
+  for (auto& action : hs_seq) {
+    mcts_node<Game>* child_by_action = find_child_by_action(cur, action); 
+    if (child_by_action && child_by_action->visit_count) {
+      qs.push_back(child_by_action->q / child_by_action->visit_count);
+      cur = child_by_action;
+    } else {
+      break;
+    }
+  }
+  return qs;
+}
+
+template <class Game>
 void uct(
   typename Game::config_type cfg,
   std::size_t num_iters,
@@ -288,8 +316,16 @@ void uct(
 
   node_type root(con.initialize_state(cfg)); 
 
+  std::ofstream tmp("tmp");
+
   for (std::size_t i = 0; i < num_iters; i++) {
     node_type* v = tree_policy(&root, con, cfg);  
+
+    if (i == 1) {
+      tmp << root.to_gv() << std::endl;
+      exit(0);
+    }
+
     float reward = default_policy(v, con, cfg, high_score, hs_seq);
     backup(reward, v);
   }
@@ -300,6 +336,15 @@ void uct(
     std::cout << Game::action_to_str(elem) << " ";
   }
   std::cout << std::endl;
+  std::cout << "seq_len: " << hs_seq.size() << std::endl;
+
+  std::vector<float> qs = q_trace(&root, hs_seq);
+  std::cout << "q_trace: ";
+  for (auto& q : qs) {
+    std::cout << q << " ";
+  }
+  std::cout << std::endl;
+  std::cout << "q_trace_len: " << qs.size() << std::endl;
 
   std::ofstream gv("tree.dot");
   gv << root.to_gv() << std::endl;

@@ -1,7 +1,6 @@
 #pragma once
 
 #include <fstream>
-#include <mutex>
 #include <numeric> 
 #include <thread>
 #include "render.hpp"
@@ -55,8 +54,8 @@ class monte_carlo_simulator {
     std::size_t num_nodes_;
     std::size_t num_rollouts_;
     std::size_t num_unvisited_;
-    std::mutex worklist_mutex_;
     std::ofstream mixing_data_f_;
+    std::ofstream exp_f_;
   public:
     monte_carlo_simulator(const config_type& cfg) 
       : cfg_(cfg),
@@ -65,7 +64,8 @@ class monte_carlo_simulator {
         num_nodes_(0),
         num_rollouts_(20),
         num_unvisited_(0),
-        mixing_data_f_("mixing_data") 
+        mixing_data_f_("mixing_data"),
+        exp_f_("exp")
     {}
 
     void rollout(node_type* node) {
@@ -91,11 +91,12 @@ class monte_carlo_simulator {
 
       var /= rewards.size() - 1; 
 
-      std::lock_guard<std::mutex> lock(worklist_mutex_);
       node->reward = mean;
       node->simulated = true;
       node->mean = mean;
       node->var = var;
+
+      exp_f_ << node->mean << " " << node->var << " " << node->depth << std::endl;
     }
 
     void rollout_range(std::vector<node_type*>& worklist, std::size_t start_idx, std::size_t end_idx) {
@@ -124,24 +125,15 @@ class monte_carlo_simulator {
           v2 += (p.first * p.first) / n; 
         }
         float var = v1 + v2 - (mean * mean);
-
-        mixing_data_f_ << mean << " " << var << " " << node->depth << " ["; 
-
-        auto it = c_vals.begin();
-        mixing_data_f_ << "(" << it->first << "," << it->second << ")";
-        ++it;
-        while (it != c_vals.end()) {
-          mixing_data_f_ << ", (" << it->first << "," << it->second << ")"; 
-          ++it;
-        } 
-        mixing_data_f_ << "]" << std::endl;
+        
+        mixing_data_f_ << mean << " " << var << " " << node->children.size() << std::endl;
 
         return std::make_pair(mean, var);
       } 
     }
 
     void simulate() {
-      while (num_nodes_ < 1e3 && !worklist_.empty()) {
+      while (num_nodes_ < 250000 && !worklist_.empty()) {
         int random_idx = std::rand() % worklist_.size(); 
         auto it = worklist_.begin();
         std::advance(it, random_idx);
@@ -165,7 +157,7 @@ class monte_carlo_simulator {
         auto children = cur->children;
         num_nodes_ += children.size();
 
-        for (auto& child : (*it)->children) {
+        for (auto& child : cur->children) {
           worklist_.push_back(&child);
         }
 
